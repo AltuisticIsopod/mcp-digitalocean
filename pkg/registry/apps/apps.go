@@ -282,6 +282,67 @@ func (a *AppPlatformTool) updateApp(ctx context.Context, req mcp.CallToolRequest
 	return mcp.NewToolResultText(string(appJSON)), nil
 }
 
+// getAppLogs retrieves logs for an app deployment
+func (a *AppPlatformTool) getAppLogs(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	appID, ok := req.GetArguments()["AppID"].(string)
+	if !ok {
+		return mcp.NewToolResultError("App ID is required and must be a string"), nil
+	}
+
+	deploymentID, ok := req.GetArguments()["DeploymentID"].(string)
+	if !ok {
+		return mcp.NewToolResultError("Deployment ID is required and must be a string"), nil
+	}
+
+	component, ok := req.GetArguments()["Component"].(string)
+	if !ok {
+		return mcp.NewToolResultError("Component is required and must be a string"), nil
+	}
+
+	logTypeStr, ok := req.GetArguments()["LogType"].(string)
+	if !ok {
+		return mcp.NewToolResultError("LogType is required and must be a string"), nil
+	}
+
+	// Validate log type
+	var logType godo.AppLogType
+	switch logTypeStr {
+	case "BUILD":
+		logType = godo.AppLogTypeBuild
+	case "DEPLOY":
+		logType = godo.AppLogTypeDeploy
+	case "RUN":
+		logType = godo.AppLogTypeRun
+	case "RUN_RESTARTED":
+		logType = godo.AppLogTypeRunRestarted
+	default:
+		return mcp.NewToolResultError("Invalid LogType. Must be one of: BUILD, DEPLOY, RUN, RUN_RESTARTED and must be a string"), nil
+	}
+
+	// Optional parameters
+	follow := false
+	if followVal, ok := req.GetArguments()["Follow"].(bool); ok {
+		follow = followVal
+	}
+
+	tailLines := 100 // Default to 100 lines
+	if tailVal, ok := req.GetArguments()["TailLines"].(int); ok {
+		tailLines = int(tailVal)
+	}
+	//Call Godo.getLogs function
+	logs, _, err := a.client.Apps.GetLogs(ctx, appID, deploymentID, component, logType, follow, tailLines)
+	if err != nil {
+		return mcp.NewToolResultErrorFromErr(fmt.Sprintf("failed to get logs for app %s, deployment %s, component %s", appID, deploymentID, component), err), nil
+	}
+
+	logsJSON, err := json.MarshalIndent(logs, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal app logs: %w", err)
+	}
+
+	return mcp.NewToolResultText(string(logsJSON)), nil
+}
+
 func (a *AppPlatformTool) Tools() []server.ServerTool {
 	tools := []server.ServerTool{
 		{
@@ -327,6 +388,18 @@ func (a *AppPlatformTool) Tools() []server.ServerTool {
 				"apps-update",
 				"Updates an existing application on DigitalOcean App Platform. The app ID and the AppSpec must be provided in the request.",
 				appUpdateSchemaJSON,
+			),
+		},
+		{
+			Handler: a.getAppLogs,
+			Tool: mcp.NewTool("apps-get-logs",
+				mcp.WithDescription("Retrieves app logs for a specific app deployment and component on DigitalOcean App Platform. Returns both live and historic log URLs."),
+				mcp.WithString("AppID", mcp.Required(), mcp.Description("The application ID")),
+				mcp.WithString("DeploymentID", mcp.Required(), mcp.Description("The deployment ID")),
+				mcp.WithString("Component", mcp.Required(), mcp.Description("The component name to get logs for")),
+				mcp.WithString("LogType", mcp.Required(), mcp.Description("The type of logs to retrieve. Must be one of: BUILD, DEPLOY, RUN, RUN_RESTARTED")),
+				mcp.WithBoolean("Follow", mcp.DefaultBool(false), mcp.Description("Whether to follow logs in real-time (default: false)")),
+				mcp.WithNumber("TailLines", mcp.DefaultNumber(100), mcp.Description("Number of lines to retrieve from the end of logs (default: 100)")),
 			),
 		},
 	}

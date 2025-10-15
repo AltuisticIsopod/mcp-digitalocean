@@ -571,9 +571,13 @@ func TestGetAppLogs(t *testing.T) {
 			expectMcp: "App ID is required and must be a string",
 		},
 		{
-			name:      "Invalid LogType",
-			args:      map[string]any{"AppID": "app-123", "DeploymentID": "deployment-123", "Component": "web", "LogType": "INVALID", "Follow": false, "TailLines": 100},
-			expectMcp: "Invalid LogType. Must be one of: BUILD, DEPLOY, RUN, RUN_RESTARTED and must be a string",
+			name: "Invalid LogType",
+			args: map[string]any{"AppID": "app-123", "DeploymentID": "deployment-123", "Component": "web", "LogType": "INVALID_LOG_TYPE"},
+			mock: func(app *MockAppsService) {
+				app.EXPECT().GetLogs(gomock.Any(), "app-123", "deployment-123", "web", godo.AppLogType("INVALID_LOG_TYPE"), false, 100).
+					Return(nil, nil, fmt.Errorf("invalid log_type: INVALID_LOG_TYPE")).Times(1)
+			},
+			expectError: true,
 		},
 		{
 			name: "With optional parameters - Follow true, custom TailLines",

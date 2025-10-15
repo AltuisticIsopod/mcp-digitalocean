@@ -303,21 +303,7 @@ func (a *AppPlatformTool) getAppLogs(ctx context.Context, req mcp.CallToolReques
 	if !ok {
 		return mcp.NewToolResultError("LogType is required and must be a string"), nil
 	}
-
-	// Validate log type
-	var logType godo.AppLogType
-	switch logTypeStr {
-	case "BUILD":
-		logType = godo.AppLogTypeBuild
-	case "DEPLOY":
-		logType = godo.AppLogTypeDeploy
-	case "RUN":
-		logType = godo.AppLogTypeRun
-	case "RUN_RESTARTED":
-		logType = godo.AppLogTypeRunRestarted
-	default:
-		return mcp.NewToolResultError("Invalid LogType. Must be one of: BUILD, DEPLOY, RUN, RUN_RESTARTED and must be a string"), nil
-	}
+	logType := godo.AppLogType(logTypeStr)
 
 	// Optional parameters
 	follow := false
@@ -397,7 +383,7 @@ func (a *AppPlatformTool) Tools() []server.ServerTool {
 				mcp.WithString("AppID", mcp.Required(), mcp.Description("The application ID")),
 				mcp.WithString("DeploymentID", mcp.Required(), mcp.Description("The deployment ID")),
 				mcp.WithString("Component", mcp.Required(), mcp.Description("The component name to get logs for")),
-				mcp.WithString("LogType", mcp.Required(), mcp.Description("The type of logs to retrieve. Must be one of: BUILD, DEPLOY, RUN, RUN_RESTARTED")),
+				mcp.WithString("LogType", mcp.Required(), mcp.Enum("BUILD", "RUN", "DEPLOY", "RUN_RESTARTED"), mcp.Description("The type of logs to retrieve.")),
 				mcp.WithBoolean("Follow", mcp.DefaultBool(false), mcp.Description("Whether to follow logs in real-time (default: false)")),
 				mcp.WithNumber("TailLines", mcp.DefaultNumber(100), mcp.Description("Number of lines to retrieve from the end of logs (default: 100)")),
 			),

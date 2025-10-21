@@ -315,8 +315,13 @@ func (a *AppPlatformTool) getAppLogs(ctx context.Context, req mcp.CallToolReques
 	if tailVal, ok := req.GetArguments()["TailLines"].(int); ok {
 		tailLines = int(tailVal)
 	}
+	client, err := a.client(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch client: %w", err)
+	}
+
 	//Call Godo.getLogs function
-	logs, _, err := a.client.Apps.GetLogs(ctx, appID, deploymentID, component, logType, follow, tailLines)
+	logs, _, err := client.Apps.GetLogs(ctx, appID, deploymentID, component, logType, follow, tailLines)
 	if err != nil {
 		return mcp.NewToolResultErrorFromErr(fmt.Sprintf("failed to get logs for app %s, deployment %s, component %s", appID, deploymentID, component), err), nil
 	}
